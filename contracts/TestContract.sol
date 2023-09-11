@@ -8,9 +8,14 @@ contract TestContract {
     string public constant version = "1";
     address public immutable USDC;
     mapping(address => uint) public deposits;
+    mapping (address => uint) public nonces;
 
     bytes32 public immutable DOMAIN_SEPARATOR;
     bytes32 public immutable DEPOSIT_TYPEHASH;
+
+    error InvalidVerify();
+    error InvalidNonce();
+    error InvalidAmount();
 
     constructor(address USDC_, uint256 chainId_) {
         USDC = USDC_;
@@ -31,16 +36,24 @@ contract TestContract {
     function depositWithPermit(
         address signer,
         uint256 amount,
+        uint256 nonce,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) external {
-        require(verify(signer, v, r, s, keccak256(abi.encode(DEPOSIT_TYPEHASH, amount))), 'ERR: INVALID_VERIFY');
+        if (!verify(signer, v, r, s, keccak256(abi.encode(DEPOSIT_TYPEHASH, amount)))) {
+            revert InvalidVerify();
+        }
+        if (nonce != nonces[signer]++) {
+            revert InvalidNonce();
+        }
         _deposit(signer, amount);
     }
 
     function _deposit(address address_, uint256 amount) internal {
-        require(amount > 0, 'ERR: INVALID_AMOUNT');
+        if (amount == 0) {
+            revert InvalidAmount();
+        }
         deposits[address_] += amount;
         IERC20(USDC).transferFrom(address_, address(this), amount);
     }
@@ -64,7 +77,9 @@ contract TestContract {
 
     function withdraw() external {
         uint amountToWithdraw = deposits[msg.sender];
-        require(amountToWithdraw > 0, 'ERR: INVALID_AMOUNT');
+        if (amountToWithdraw == 0) {
+            revert InvalidAmount();
+        }
 
         deposits[msg.sender] = 0;
         IERC20(USDC).transfer(msg.sender, amountToWithdraw);

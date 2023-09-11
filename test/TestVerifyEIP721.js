@@ -37,38 +37,48 @@ describe("EIP721 Test", function () {
     });
 
     it("Test validate pre-signed deposit", async function () {
-        console.log(await USDC.balanceOf(user1.address), 'user1 balance');
-        console.log(await USDC.balanceOf(user2.address), 'user2 balance');
+        let initialUser1Balance = await USDC.balanceOf(user1.address);
+        let initialUser2Balance = await USDC.balanceOf(user2.address);
+        console.log(initialUser1Balance, 'user1 balance');
+        console.log(initialUser2Balance, 'user2 balance');
 
         const amount = ethers.utils.parseUnits('1000', 6);
         await USDC.connect(user1).approve(TestContract.address, amount);
         await USDC.connect(user2).approve(TestContract.address, amount);
 
         await TestContract.connect(user2).deposit(amount);
-        console.log(await USDC.balanceOf(user1.address), 'user1 balance AFTER 1st normal deposit');
-        console.log(await USDC.balanceOf(user2.address), 'user2 balance AFTER 1st normal deposit');
+        expect(await USDC.balanceOf(user2.address)).to.equal(ethers.BigNumber.from(initialUser2Balance).sub(amount));
 
+        const signerNonce = await TestContract.nonces(user1.address);
         const message = {
-            amount: amount
+            amount: amount,
+            nonce: signerNonce
         };
-
         const domain = {
             name: 'TestContract',
             version: '1',
             chainId: CHAIN_ID,
             verifyingContract: TestContract.address
         };
-
         const types = {
             DepositWithPermit: [
                 { name: "amount", type: "uint256" }
             ]
         };
-
         let signedTypedData = await user1._signTypedData(domain, types, message);
         let { v, r, s } = ethers.utils.splitSignature(signedTypedData);
 
-        await TestContract.connect(user2).depositWithPermit(user1.address, amount, v, r, s);
+        await TestContract.connect(user2).depositWithPermit(user1.address, amount, signerNonce, v, r, s);
+        expect(await USDC.balanceOf(user1.address)).to.equal(ethers.BigNumber.from(initialUser1Balance).sub(amount));
+
+        // trying to deposit again with the same signed message
+        await expect(
+            TestContract.connect(user2).depositWithPermit(user1.address, amount, signerNonce, v, r, s)
+        ).to.be.revertedWithCustomError(
+            TestContract,
+            "InvalidNonce"
+        );
+        expect(await USDC.balanceOf(user1.address)).to.equal(ethers.BigNumber.from(initialUser1Balance).sub(amount));
 
         console.log(await USDC.balanceOf(user1.address), 'user1 balance AFTER 2nd permitted deposit');
         console.log(await USDC.balanceOf(user2.address), 'user2 balance AFTER 2nd permitted deposit');
