@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity ^0.8.28;
 
 import "./interfaces/IERC20.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 
 contract TestContract {
     string public constant name = "TestContract";
@@ -72,7 +74,7 @@ contract TestContract {
                 encodedData
             )
         );
-        return signer == ecrecover(digest, v, r, s);
+        return signer == ECDSA.recover(digest, v, r, s);
     }
 
     function withdraw() external {

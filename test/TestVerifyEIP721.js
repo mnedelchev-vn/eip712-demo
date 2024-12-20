@@ -13,34 +13,31 @@ async function impersonateAddress(address) {
 }
 
 describe("EIP721 Test", function () {
-    let owner;
-    let user1;
-    let user2;
     let usdcHolder;
     let TestContract;
     let usdcAddress = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
     let USDC;
     const CHAIN_ID = 1;
-
     before(async function () {
         let signers = await ethers.getSigners();
+        console.log(signers, 'signers');
         owner = signers[0];
         user1 = signers[1];
         user2 = signers[2];
-        usdcHolder = await impersonateAddress("0xaaef851977578d9CDF0042fB88F4532b9Ef602B2"); // Holder
+        usdcHolder = await impersonateAddress("0xaaef851977578d9CDF0042fB88F4532b9Ef602B2");
         TestContract = await hre.ethers.getContractFactory('TestContract');
         TestContract = await TestContract.deploy(usdcAddress, CHAIN_ID);
         USDC = await hre.ethers.getContractAt('contracts/interfaces/IERC20.sol:IERC20', usdcAddress);
 
-        await USDC.connect(usdcHolder).transfer(user1.address, ethers.parseUnits('10000', 6));
-        await USDC.connect(usdcHolder).transfer(user2.address, ethers.parseUnits('10000', 6));
+        await USDC.connect(usdcHolder).transfer(user1.address, ethers.parseUnits('5000', 6));
+        await USDC.connect(usdcHolder).transfer(user2.address, ethers.parseUnits('5000', 6));
     });
 
     it("Test validate pre-signed deposit", async function () {
         let initialUser1Balance = await USDC.balanceOf(user1.address);
         let initialUser2Balance = await USDC.balanceOf(user2.address);
 
-        const amount = ethers.parseUnits('1000', 6);
+        const amount = ethers.parseUnits('2000', 6);
         await USDC.connect(user1).approve(TestContract.target, amount);
         await USDC.connect(user2).approve(TestContract.target, amount);
 
